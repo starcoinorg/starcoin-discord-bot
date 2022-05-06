@@ -81,8 +81,8 @@ address admin{
             deposit_nft_event_handler:    Event::EventHandle<DepositNFTEvent<Meta>>,
         }
 
-        public fun is_have_resourceList<Meta: copy + store + drop, Body: store>():bool{
-            return exists<ResourceList<Meta,Body>>( DEFAULT_ADMIN )
+        public fun is_have_galleryList<Meta: copy + store + drop, Body: store>():bool{
+            return exists<GalleryList<Meta,Body>>( admin() )
         }
 
         public fun is_admin(addr:address):bool{
@@ -111,12 +111,18 @@ address admin{
             }
         }
 
-        public (script) fun init_bank<TokenType: store >( signer: signer )   {
+        public (script) fun init_bank<TokenType: store >( signer: signer , amount: u128 )   {
             let account = &signer;
-            assert!( ! exists<ResourceBank<TokenType>>( Signer::address_of( account ) ) , 10003 );
+            let user_addr = Signer::address_of( account );
+            assert!( ! exists<ResourceBank<TokenType>>( user_addr ) , 10003 );
+            assert!(   Account::balance<TokenType>( user_addr ) >= amount , 10004 );
+            
+            let token = Account::withdraw<TokenType>( account , amount );
+            
             move_to(account,ResourceBank<TokenType>{
-                bank : Token::zero<TokenType>()
+                bank : token
             });
+
             move_to(account, StarcoinBotBankEvent<TokenType>{
                 send_token_event_handler:       Event::new_event_handle<SendTokenEvent>(account),
                 withdraw_token_event_handler:   Event::new_event_handle<WithdrawTokenEvent>(account),
@@ -139,7 +145,7 @@ address admin{
             });
         }
 
-        public (script) fun withdraw_nft<Meta: copy + store + drop, Body: store>(signer:signer, pos:u64 , id:u64 , to:address ) acquires GalleryList ,StarcoinBotGalleryListEvent {
+        public (script) fun withdraw_nft<Meta: copy + store + drop, Body: store>(signer: signer, pos: u64 , id: u64 , to: address ) acquires GalleryList ,StarcoinBotGalleryListEvent {
             let account = &signer;
             let user_addr = Signer::address_of( account );
             if( NFTGallery::is_accept<Meta,Body>( user_addr ) ) {
@@ -177,9 +183,9 @@ address admin{
             });
         }
 
-        public (script) fun deposit_nft<Meta: copy + store + drop, Body: store>(signer:signer , id:u64 ) acquires GalleryList,StarcoinBotGalleryListEvent {
+        public (script) fun deposit_nft<Meta: copy + store + drop, Body: store>(signer: signer , id: u64 ) acquires GalleryList,StarcoinBotGalleryListEvent {
             let account = &signer;
-            assert!(is_have_resourceList< Meta  , Body >() , 100421);
+            assert!(is_have_galleryList< Meta  , Body >() , 100421);
             let user_addr = Signer::address_of( account );
             assert!( NFTGallery::is_accept<Meta,Body>( user_addr ) , 100301 ) ;
             let op_nft = NFTGallery::withdraw<Meta,Body>( account , id );
@@ -276,13 +282,14 @@ address admin{
         public (script) fun deposit_token<TokenType:store>(signer:signer,amount :u128) acquires ResourceBank,StarcoinBotBankEvent{
             let account = &signer;
             let user_addr = Signer::address_of( account );
+            assert!(   Account::balance<TokenType>( user_addr ) >= amount , 10004 );
+            let token = Account::withdraw<TokenType>( account , amount );
             if( exists<ResourceBank<TokenType>>( user_addr )){
-                let token = Account::withdraw<TokenType>( account , amount );
                 let resourcebank = borrow_global_mut<ResourceBank<TokenType>>( user_addr );
                 Token::deposit<TokenType>( &mut resourcebank.bank , token );
             }else{
                 move_to(account,ResourceBank<TokenType>{
-                    bank : Token::zero<TokenType>()
+                    bank : token
                 });
             };
             let token_event = borrow_global_mut<StarcoinBotBankEvent<TokenType>>( admin() );
