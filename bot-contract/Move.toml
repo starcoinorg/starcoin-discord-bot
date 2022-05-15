@@ -1,0 +1,12 @@
+[package]
+name = "StarcoinBot"
+version = "0.0.1"
+
+
+[addresses]
+StarcoinFramework = "0x1"
+admin = "0x57b052EA2d156B01A2596969E7aa4044"
+
+
+[dependencies]
+StarcoinFramework = { git = "https://github.com/starcoinorg/starcoin-framework.git", rev = "01c84198819310620f2417413c3c800df8292ae5" }
